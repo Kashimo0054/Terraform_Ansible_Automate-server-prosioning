@@ -1,0 +1,12 @@
+- name: Setup web servers
+  hosts: role_web
+  become: yes
+  roles:
+    - docker
+
+- name: Setup build servers
+  hosts: role_build
+  become: yes
+  roles:
+    - java
+    - maven

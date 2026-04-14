@@ -1,0 +1,15 @@
+---
+# tasks file for java
+
+
+- name: Update apt cache
+  tags: update
+  apt:
+   update_cache: yes
+
+- name: install java
+  tags: java_setup
+  apt:
+    name: "{{ java_package }}"
+    state: present
+     

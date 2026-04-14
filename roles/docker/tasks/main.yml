@@ -1,0 +1,21 @@
+---
+# tasks file for docker
+
+- name: Update apt cache
+  tags: update
+  apt:
+    update_cache: yes
+
+- name: install docker
+  tags: install
+  apt:
+    name: "{{ docker_package }}"
+    state: present
+  notify: restart docker service
+
+- name: add user to docker group
+  tags: user
+  user:
+    name: "{{ docker_user }}"
+    groups: docker
+    append: yes

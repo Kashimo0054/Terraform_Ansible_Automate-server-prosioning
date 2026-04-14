@@ -1,0 +1,13 @@
+---
+# tasks file for maven
+
+- name: Update apt cache
+  tags: update
+  apt:
+    update_cache: yes
+
+- name: install maven
+  tags: maven_setup
+  apt:
+    name: "{{ maven_package }}"
+    state: present

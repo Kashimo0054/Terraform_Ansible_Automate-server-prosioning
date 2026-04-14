@@ -1,0 +1,12 @@
+---
+plugin: amazon.aws.aws_ec2
+regions:
+  - ap-south-1
+hostnames:
+  - ip-address
+
+# This creates groups like 'role_build' and 'role_web'
+keyed_groups:
+  - key: tags.Role
+    prefix: role
+    separator: "_"

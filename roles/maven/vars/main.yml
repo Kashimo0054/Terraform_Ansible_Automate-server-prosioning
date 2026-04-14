@@ -1,0 +1,4 @@
+---
+# vars file for maven
+
+maven_package: maven
