@@ -1,55 +1,83 @@
-name: Terraform + Ansible Deployment
+name: Provision and Configure
 
 on:
+  workflow_dispatch:   # manual trigger
   push:
-    branches:
-      - main
+    branches: [ main ] # run on push to main
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
-
+  terraform:
+    runs-on: self-hosted
     steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
 
-    # Setup Terraform
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ./terraform
 
-    # AWS Credentials
-    - name: Configure AWS
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_REGION }}
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+        working-directory: ./terraform
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ap-south-1   # adjust to your region
 
-    # Terraform Init & Apply
-    - name: Terraform Init
-      run: terraform init
-      working-directory: terraform
+  ansible:
+    runs-on: self-hosted
+    needs: terraform   # ensures Ansible runs only after Terraform
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-    - name: Terraform Apply
-      run: terraform apply -auto-approve
-      working-directory: terraform
+      - name: Install Ansible + boto3
+        run: sudo apt-get update && sudo apt-get install -y ansible python3-boto3
 
-    # Install Ansible
-    - name: Install Ansible
-      run: |
-        sudo apt update
-        sudo apt install -y ansible python3-pip
-        pip install boto boto3
+      - name: Write SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PIPELINE_KEYPAIR_PEM }}" > ~/.ssh/pipeline.pem
+          chmod 600 ~/.ssh/pipeline.pem
 
-    # Inject SSH Key
-    - name: Setup SSH key
-      run: |
-        echo "${{ secrets.EC2_SSH_KEY }}" > key.pem
-        chmod 400 key.pem
+      - name: Verify Dynamic Inventory
+        run: |
+          ansible-inventory -i aws_ec2.yml --graph
+          sleep 5
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ap-south-1
 
-    # Run Ansible
-    - name: Run Ansible Playbook
-      run: |
-        ansible-playbook -i ansible/aws_ec2.yml ansible/site.yml \
-        --private-key key.pem
+      - name: Run Ansible Playbook
+        run: ansible-playbook -i aws_ec2.yml site1.yml --private-key ~/.ssh/pipeline.pem
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ap-south-1
+          ANSIBLE_HOST_KEY_CHECKING: False
+
+  destroy:
+    runs-on: self-hosted
+    if: github.event_name == 'workflow_dispatch' # only manual runs
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ./terraform
+
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve
+        working-directory: ./terraform
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ap-south-1
