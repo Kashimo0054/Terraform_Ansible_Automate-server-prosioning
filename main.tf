@@ -82,3 +82,24 @@ resource "aws_instance" "db_server" {
     Role = "db"
   }
 }
+
+
+
+# 5. cache Server Resource
+resource "aws_instance" "cache_server" {
+  ami                    = "ami-05d2d839d4f73aafb"
+  instance_type          = "t3.medium"
+  key_name               = "Pipelinekeypair"
+  vpc_security_group_ids = [aws_security_group.ansible_sg.id]
+
+  root_block_device {
+    volume_size           = 30
+    volume_type           = "gp3"
+    delete_on_termination = true
+  }
+
+  tags = {
+    Name = "Ansible-cache"
+    Role = "cache"
+  }
+}
