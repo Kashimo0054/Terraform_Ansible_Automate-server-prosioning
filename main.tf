@@ -79,6 +79,6 @@ resource "aws_instance" "db_server" {
 
   tags = {
     Name = "Ansible-db"
-    Role = "web"
+    Role = "db"
   }
 }
