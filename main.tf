@@ -64,8 +64,8 @@ resource "aws_instance" "build_server" {
 }
 
 
-# 4. Web Server Resource
-resource "aws_instance" "web_server" {
+# 4. DB Server Resource
+resource "aws_instance" "db_server" {
   ami                    = "ami-05d2d839d4f73aafb"
   instance_type          = "t3.medium"
   key_name               = "Pipelinekeypair"
@@ -78,7 +78,7 @@ resource "aws_instance" "web_server" {
   }
 
   tags = {
-    Name = "Ansible-Web"
+    Name = "Ansible-db"
     Role = "web"
   }
 }
