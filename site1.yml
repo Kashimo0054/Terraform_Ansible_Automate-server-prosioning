@@ -10,3 +10,9 @@
   roles:
     - java
     - maven
+
+- name: Setup db servers
+  hosts: role_db
+  become: yes
+  roles:
+    - maven 
