@@ -16,3 +16,9 @@
   become: yes
   roles:
     - maven 
+
+- name: Setup cache servers
+  hosts: role_cache
+  become: yes
+  roles:
+    - java
