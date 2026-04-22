@@ -62,3 +62,23 @@ resource "aws_instance" "build_server" {
     Role = "build"
   }
 }
+
+
+# 4. Web Server Resource
+resource "aws_instance" "web_server" {
+  ami                    = "ami-05d2d839d4f73aafb"
+  instance_type          = "t3.medium"
+  key_name               = "Pipelinekeypair"
+  vpc_security_group_ids = [aws_security_group.ansible_sg.id]
+
+  root_block_device {
+    volume_size           = 30
+    volume_type           = "gp3"
+    delete_on_termination = true
+  }
+
+  tags = {
+    Name = "Ansible-Web"
+    Role = "web"
+  }
+}
