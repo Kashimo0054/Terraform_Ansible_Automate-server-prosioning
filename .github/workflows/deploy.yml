@@ -1,13 +1,14 @@
 name: Provision and Configure
 
 on:
-  workflow_dispatch:   # manual trigger
   push:
-    branches: [ main ] # run on push to main
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   terraform:
     runs-on: self-hosted
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -17,30 +18,36 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
-        working-directory: .   # root directory
+        working-directory: .
 
       - name: Terraform Apply
         run: terraform apply -auto-approve
-        working-directory: .   # root directory
+        working-directory: .
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ap-south-1   # adjust to your region
+          AWS_DEFAULT_REGION: ap-south-1
 
   ansible:
     runs-on: self-hosted
-    needs: terraform   # depends on Terraform job
+    needs: terraform
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Install Ansible + boto3
+      - name: Install Ansible + Python venv
         run: |
-          sudo apt-get update && sudo apt-get install -y ansible python3-pip
+          sudo apt-get update
+          sudo apt-get install -y ansible python3-venv python3-pip
+
+          python3 -m venv venv
+          source venv/bin/activate
+
           pip install boto3 botocore
           ansible-galaxy collection install amazon.aws
 
-      - name: Write SSH key
+      - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.PIPELINE_KEYPAIR_PEM }}" > ~/.ssh/pipeline.pem
@@ -48,39 +55,29 @@ jobs:
 
       - name: Verify Dynamic Inventory
         run: |
+          source venv/bin/activate
           ansible-inventory -i aws_ec2.yml --graph
-          sleep 10
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ap-south-1
+
+      - name: Wait for EC2 to be ready
+        run: |
+          source venv/bin/activate
+          ansible all -i aws_ec2.yml -m wait_for_connection --timeout=300
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ap-south-1
 
       - name: Run Ansible Playbook
-        run: ansible-playbook -i aws_ec2.yml site1.yml --private-key ~/.ssh/pipeline.pem
+        run: |
+          source venv/bin/activate
+          ansible-playbook -i aws_ec2.yml site1.yml \
+            --private-key ~/.ssh/pipeline.pem
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ap-south-1
           ANSIBLE_HOST_KEY_CHECKING: False
-
-  destroy:
-    runs-on: self-hosted
-    if: github.event_name == 'workflow_dispatch' # only manual runs
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
-
-      - name: Terraform Init
-        run: terraform init
-        working-directory: .   # root directory
-
-      - name: Terraform Destroy
-        run: terraform destroy -auto-approve
-        working-directory: .   # root directory
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ap-south-1
