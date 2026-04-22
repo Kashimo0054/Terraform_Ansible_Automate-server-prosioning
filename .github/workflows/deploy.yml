@@ -7,7 +7,7 @@ on:
 
 jobs:
   terraform:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -28,7 +28,7 @@ jobs:
           AWS_DEFAULT_REGION: ap-south-1   # adjust to your region
 
   ansible:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: terraform   # depends on Terraform job
     steps:
       - name: Checkout repo
@@ -64,7 +64,7 @@ jobs:
           ANSIBLE_HOST_KEY_CHECKING: False
 
   destroy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     if: github.event_name == 'workflow_dispatch' # only manual runs
     steps:
       - name: Checkout repo
